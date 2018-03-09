@@ -17,14 +17,15 @@ void UI(byte cmd_typed)
           f_wall = 0;
           break;
       case 108:// l
-          myStepper->step(1700, FORWARD, DOUBLE);
+          myStepper->step(60, FORWARD, DOUBLE);
           myStepper->release();
           auto_mode = 0;
           line_follower = 0;
           f_wall = 0;
           break;
       case 107:// k
-          myStepper->step(1700, BACKWARD, DOUBLE);
+          myStepper->step(60, BACKWARD, DOUBLE);
+          delay(1000);
           myStepper->release();
           auto_mode = 0;
           line_follower = 0;
