@@ -9,11 +9,11 @@ For use with the Adafruit Motor Shield v2
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
 #include <Servo.h>
-//#include <SoftwareSerial.h>
+#include <SoftwareSerial.h>
 #include "utility/Adafruit_MS_PWMServoDriver.h"
 #include "Encoder.h"
 
-//SoftwareSerial debugMyRobot(10,11);         //debugMyRobot(2,3); // RX, TX
+SoftwareSerial debugMyRobot(10,11);         //debugMyRobot(2,3); // RX, TX
 const int analogPin0 = 0;                   //Center sensor
 const int analogPin1 = 1;                   //Left sensor 
 const int analogPin2 = 2;                   //Right sesnor
@@ -22,8 +22,12 @@ const int analogPin7 = 7;                   //mag sensor
 const int digitalPin22 = 22;                // LED out
 const int digitalPin12 = 12;                //motorsheild input
 const int digitalPin52 = 52;                //digital toggle for wall lift
+const int digitalPin51 = 51;                //digital toggle for RailRunners
 
-//const float pi = 3.14;
+//Constants
+const double pi = 3.141592654;
+
+//Rando stuff
 const int height = 5;
 int course_stage = 0;
 int auto_mode = 0;                         //flag for auto_mode
@@ -53,23 +57,30 @@ float global_memory[15];
 float slope = 0;
 
 //Wheel O shit
+Encoder leftEnc(18, 19);           //Motor2
+Encoder rightEnc(2, 3);            //Motor1
 
-Encoder leftEnc(18, 19);             //Motor1
-Encoder rightEnc(2, 3);            //Motor2
-
-double GearRatio = 50*64;
-double countsPerRev_motor = 64;
+double encoder_scale = 4480;
+double wheel_circumference = 2 * pi * 2.54;
 double left_counts;
 double right_counts;
 double left_last_count;
 double right_last_count;
 
+//PID Controls
+//Set these wherever convenient
+double input, output, setPoint;
+int sampleTime = 1;
+//Set using function setTunings()
+double kP, kI, kD;
+//Set by algorithm
+unsigned long last_time;
+double errSum, lastErr;
+
 //time variables
 unsigned long t_ms = 0;
 double t, t_old, Pos_left, Pos_right, Vel_left, Vel_right, Pos_left_old, Pos_right_old= 0;
 double rads = 0;
-double pi = 3.141592654;
-
                         
 //Sonar servo 
 Servo sonar;                                //Center servo pin Digital 24
@@ -89,7 +100,7 @@ void setup()
   Serial.begin(9600); // Start serial communication at 9600 bps
 
   // Open serial communications with the other Arduino board
-  //debugMyRobot.begin(9600);
+  debugMyRobot.begin(9600);
 
   //attach correct servos to the correct pins
   sonar.attach(24);
@@ -108,9 +119,11 @@ void setup()
   pinMode(digitalPin12,OUTPUT);
   pinMode(digitalPin22,OUTPUT);
   pinMode(digitalPin52,OUTPUT);
+  pinMode(digitalPin51,OUTPUT);
 
   delay(500);
   //calibrate();
+  setTunings(100000,1,.55); //Best tune so far (100000,1,.55)
   /*Serial.println("Calibration>");
   Serial.print("Distance: ");
   Serial.print(distance);
@@ -139,11 +152,14 @@ void loop()
   //Serial.print("Reading from center ");
   //Serial.println(cm);
   //testLineFollower();
-  //motorTogle();
+  motorToggle();
   //detectMag();
 
-  Drive_Circle(30);
-  //Drive_Straight(10);
+  //Odometry Tests
+  //Drive_Circle(30.48);
+  //Drive_Straight(122);
+  //drive_forward(30);
+  
   /*if(debugMyRobot.available())
   {  
        UI(debugMyRobot.read());
