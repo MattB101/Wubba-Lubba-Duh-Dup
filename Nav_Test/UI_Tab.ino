@@ -66,12 +66,8 @@ void UI(byte cmd_typed)
 void auto_drive()
 {
   sense_wall(0);
-    //debugMyRobot.write(ir_distance);
      
-    if (wall == 0)  
-    {
-        forward(1, 1);
-    }
+    if (wall == 0) forward(1, 1);
     else
     {     
         find_wall(); 
@@ -81,12 +77,6 @@ void auto_drive()
     
     sense_edge(0);
      
-    if (edge == 0)  
-    {
-        forward(1, 1);
-    }
-    else
-    {
-        find_edge();
-    }
+    if (edge == 0) forward(1, 1);
+    else find_edge();
 }

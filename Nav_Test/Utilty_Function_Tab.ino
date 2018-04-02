@@ -4,8 +4,8 @@ void sense_wall(int mode)
   if (cm < 5)
   {
     wall = 1;
-    Serial.print("wall@");
-    Serial.println(cm);
+    //Serial.print("wall@");
+    //Serial.println(cm);
   }
   else
     wall = 0;
@@ -44,8 +44,6 @@ void FollowWall()
   stack_ptr++;
   if (stack_ptr > 3) stack_ptr = 0;
 
-  //Serial.println(cm);
-
   if (cm > (distance * 1.3) && slope < .5)
   {
     drive_right(5);
@@ -78,19 +76,15 @@ void FollowWall()
 void calibrate()
 {
   distance = filter(analogPin2, 50);
-  //Serial.println(distance);
 }
 
 void alignWall()
 {
-
   float scan[180];
   float average = 0;
-
   int filter_win = 7;
   int counter = 0;
   int check_count = 0;
-
   String look_direction = "right";
 
   while (look_direction == "right")
@@ -98,7 +92,7 @@ void alignWall()
     left(1, 2);
     if (counter > 179) counter = 0;
     scan[counter] = filter(analogPin2, 50);
-    Serial.println(scan[counter]);
+    //Serial.println(scan[counter]);
 
     if (counter > (filter_win - 1))
     {
@@ -112,12 +106,9 @@ void alignWall()
       if (scan[counter] > average || average >= 14)
         look_direction = "left";
     }
-
     counter++;
   }
-
   counter = 0;
-
 
   if (average < 16)
   {
@@ -176,7 +167,6 @@ void inBetweenWalls()
 
   cm_right = filter(analogPin2, 50);
   cm_left = filter(analogPin1, 50);
-  //cm = cm = filter(analogPin0,50);
 
   if ((cm_right > cm_left) && abs(cm_right - cm_left) >= thresh)
   {
@@ -189,8 +179,8 @@ void inBetweenWalls()
     drive_left(5);
     drive_reverse(10);
     drive_right(5);
-
-  } else
+  }
+  else
   {
     drive_forward(10);
   }
@@ -364,6 +354,7 @@ void testLineFollower()
   */
 }
 
+//OPTO: tips make the robot move more smoothly left and right KON3!
 void find_line()
 {
   while (line == 0)
@@ -389,37 +380,24 @@ void find_line()
   }
 
   sense_line();
-
-  //reverse(5);
-
-  //if (D_rection == false) right(5+count);
-  //else left(5+count);
-
   count = 0;
 }
 
 void sense_line()
 {
-  /*cm = 0;
-    for (int i = 0; i < 50; i++) cm = cm + filter(analogPin0,50);
-    cm = cm / 50;*/
   cm = filter(analogPin0, 50);
 
   if ((cm > 6) && (cm < 10)) //WAS 4
   {
     line = 1;
-    Serial.print("line@");
-    Serial.println(cm);
+    //Serial.print("line@");
+    //Serial.println(cm);
   }
   else {
     line = 0;
-    Serial.print("no@");
-    Serial.println(cm);
+    //Serial.print("no@");
+    //Serial.println(cm);
   }
-
-  //if (mode == 0) sonar.write(55);
-  //else if (mode == 1) sonar.write(100);
-  //delay(test4);
 }
 
 void comp()
@@ -450,19 +428,11 @@ void setTunings(double kp, double ki, double kd)
 
 void SetSampleTime(int newSampleTime)
 {
-  if(newSampleTime > 0)
+  if (newSampleTime > 0)
   {
     double ratio = (double) newSampleTime / (double) sampleTime;
     kI *= ratio;
     kD /= ratio;
     sampleTime = (unsigned long) newSampleTime;
   }
-}
-
-
-long microsecondsToCentimeters(long microseconds) {
-  // The speed of sound is 340 m/s or 29 microseconds per centimeter.
-  // The ping travels out and back, so to find the distance of the object we
-  // take half of the distance travelled.
-  return microseconds / 29 / 2;
 }

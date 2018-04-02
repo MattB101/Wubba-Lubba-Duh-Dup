@@ -17,12 +17,14 @@ SoftwareSerial debugMyRobot(10,11);         //debugMyRobot(2,3); // RX, TX
 const int analogPin0 = 0;                   //Center sensor
 const int analogPin1 = 1;                   //Left sensor 
 const int analogPin2 = 2;                   //Right sesnor
+const int analogPin3 = 3;                   //Center2 sensor
 const int analogPin7 = 7;                   //mag sensor
 
 const int digitalPin22 = 22;                // LED out
 const int digitalPin12 = 12;                //motorsheild input
-const int digitalPin52 = 52;                //digital toggle for wall lift
-const int digitalPin51 = 51;                //digital toggle for RailRunners
+const int digitalPin43 = 43;                //Enable for H-bridge
+const int digitalPin44 = 44;                //MC1
+const int digitalPin45 = 45;                //MC2
 
 //Constants
 const double pi = 3.141592654;
@@ -37,7 +39,6 @@ char val;                                  // Data received from the serial port
 int radius = 16;
 int angle = 45;
 int done = 0;
-//int data[5]; //currently unused
 boolean D_rection = true;
 int count, inc, pause = 1;
 int global_count = 0;
@@ -62,30 +63,26 @@ Encoder rightEnc(2, 3);            //Motor1
 
 double encoder_scale = 4480;
 double wheel_circumference = 2 * pi * 2.54;
-double left_counts;
-double right_counts;
-double left_last_count;
-double right_last_count;
+double left_counts ,right_counts, left_last_count, right_last_count;
 
 //PID Controls
 //Set these wherever convenient
-double input, output, setPoint;
-int sampleTime = 1;
 //Set using function setTunings()
-double kP, kI, kD;
+double input, output, setPoint, kP, kI, kD , errSum, lastErr;
+int sampleTime = 1;
+
 //Set by algorithm
 unsigned long last_time;
-double errSum, lastErr;
 
-//time variables
+//Wheel o-shit variables
 unsigned long t_ms = 0;
-double t, t_old, Pos_left, Pos_right, Vel_left, Vel_right, Pos_left_old, Pos_right_old= 0;
-double rads = 0;
+double t, t_old, Pos_left, Pos_right, Vel_left, Vel_right, Pos_left_old, Pos_right_old, rads; // check if shit breaks
                         
 //Sonar servo 
 Servo sonar;                                //Center servo pin Digital 24
 Servo sonar1;                               //Right servo pin Digital 23
 Servo sonar2;                               //Left servo pin Digital 22
+Servo sonar3;                               //Center 2nd servo pin Digital 21
 
 // Create the motor shield object with the default I2C address
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
@@ -93,12 +90,14 @@ Adafruit_StepperMotor *myStepper = AFMS.getStepper(200, 1);
 Adafruit_DCMotor *M3 = AFMS.getMotor(3);
 Adafruit_DCMotor *M4 = AFMS.getMotor(4);
 
+//H-bridge Stuff
 void setup() 
 {
   AFMS.begin();  // create with the default frequency 1.6KHz
     
   Serial.begin(9600); // Start serial communication at 9600 bps
-
+  Serial.println("Serial Started");
+  
   // Open serial communications with the other Arduino board
   debugMyRobot.begin(9600);
 
@@ -106,6 +105,9 @@ void setup()
   sonar.attach(24);
   sonar1.attach(23);
   sonar2.attach(22);
+  //sonar3.attach(46);
+
+  Serial.println("Servos Attached");
   
   //set servos starting positions
   sonar.write(55);
@@ -116,22 +118,23 @@ void setup()
   //delay(250);
   
   myStepper->setSpeed(215);
+  
   pinMode(digitalPin12,OUTPUT);
   pinMode(digitalPin22,OUTPUT);
-  pinMode(digitalPin52,OUTPUT);
-  pinMode(digitalPin51,OUTPUT);
+  pinMode(digitalPin43,OUTPUT);
+  pinMode(digitalPin44,OUTPUT);
+  pinMode(digitalPin45,OUTPUT);
 
+  Serial.println("Pins Set");
+  
+  //Settle time
   delay(500);
-  //calibrate();
+  
+  SetSampleTime(1); //Might be the fix as to why were were getting a NAN!
+  delay(50);
   setTunings(100000,1,.55); //Best tune so far (100000,1,.55)
-  /*Serial.println("Calibration>");
-  Serial.print("Distance: ");
-  Serial.print(distance);
-  Serial.println();
-  Serial.print("Max Distance: ");
-  Serial.print(distance * 1.5);
-  Serial.println();
-  Serial.println("Calibration Done");*/
+  Serial.println("PID Tuned");
+  Serial.println("Entering Loop");
 }
 
 void loop() 
@@ -141,10 +144,10 @@ void loop()
   //testLineFollower();
   //FollowWall();
   //if (done == 0)  alignWall();
+  //Quick Tsst for testing
   //FollowWall();  
   //inBetweenWalls();
   //testServoAdjust();
-  
   //Serial.print("Reading from right side ");
   //Serial.println(cm_right);
   //Serial.print("Reading from left side ");
@@ -152,27 +155,21 @@ void loop()
   //Serial.print("Reading from center ");
   //Serial.println(cm);
   //testLineFollower();
-  motorToggle();
+  //motorToggle();
   //detectMag();
-
   //Odometry Tests
-  //Drive_Circle(30.48);
-  //Drive_Straight(122);
-  //drive_forward(30);
+  //Drive_Circle(30);
+  //Drive_Straight(100);
+  //drive_reverse(30);            //roughly 8inchs 
+  //delay(2000);
   
   /*if(debugMyRobot.available())
   {  
        UI(debugMyRobot.read());
   }*/
   /*
-  if(auto_mode)
-  {
-     auto_drive(); 
-  }
-  if(line_follower)
-  {
-    testLineFollower();
-  }
+  if(auto_mode) auto_drive(); 
+  if(line_follower) testLineFollower();
   if(f_wall)
   {
     if (done == 0)  alignWall();
