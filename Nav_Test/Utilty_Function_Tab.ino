@@ -160,29 +160,60 @@ void alignWall()
     stack_ptr = 0;
   }
 }
-
+int flag = 0;
 void inBetweenWalls()
 {
-  int thresh = 2; //We can make this small if needed...
-
+  float thresh = 2.5; //We can make this small if needed...
+  if (flag == 0)
+  {
+    for (int i = 1; i < 350; i++)
+    {
+      //myStepper->setSpeed(i);
+      //myStepper->step(5, FORWARD, DOUBLE);
+      myStepper->onestep(FORWARD, DOUBLE);
+      //myStepper->setSpeed(100);
+      //myStepper->step(25, FORWARD, DOUBLE);
+      //myStepper->setSpeed(215);
+      //myStepper->step(25, FORWARD, DOUBLE);
+      //myStepper->release();
+      //delay(250);
+      flag = 1;
+    }
+    myStepper->release();
+  }
+ 
   cm_right = filter(analogPin2, 50);
   cm_left = filter(analogPin1, 50);
+  Serial.print("Right:");
+  Serial.println(cm_right);
+  Serial.print("Left:");
+  Serial.println(cm_left);
+  Serial.println("------------");
 
   if ((cm_right > cm_left) && abs(cm_right - cm_left) >= thresh)
   {
-    drive_right(5);
-    drive_reverse(10);
-    drive_left(5);
+    //drive_right(3);
+    //drive_reverse(3);
+    //drive_left(3);
+    right(3,1);
+    reverse(3,1);
+    left(4,1);
   }
   else if ((cm_left > cm_right) && abs(cm_left - cm_right) >= thresh)
   {
-    drive_left(5);
-    drive_reverse(10);
-    drive_right(5);
+    //drive_left(3);
+    //drive_reverse(3);
+    //drive_right(3);
+    left(3,1);
+    reverse(3,1);
+    right(4,1);
   }
   else
   {
-    drive_forward(10);
+    Serial.println("Driving Forward");
+    //delay(1500);
+    //drive_forward(40);
+    Drive_Straight(10);
   }
   if (cm_right > 100 && cm_left > 100)
   {
@@ -218,21 +249,6 @@ void find_wall()
 
 void sense_edge(int mode)
 {
-  //sonar.write(115);
-  /*delay(test4);
-
-    pinMode(pingPin, OUTPUT);
-    digitalWrite(pingPin, LOW);
-    delayMicroseconds(2);
-    digitalWrite(pingPin, HIGH);
-    delayMicroseconds(5);
-    digitalWrite(pingPin, LOW);
-
-    pinMode(pingPin, INPUT);
-    duration = pulseIn(pingPin, HIGH);
-
-    cm = microsecondsToCentimeters(duration);
-  */
   cm = filter(analogPin0, 50);
   //Serial.print("edge@");
   //Serial.println(cm);
@@ -284,18 +300,6 @@ float IR_Distance(int sensorNum)
   delay(1);
   return dist;
 }
-
-/*filter(int sensorNum, int window)
-  {
-    int dist = 0;
-
-    for(int i = 0; i < window; i++)
-    {
-        dist = dist + IR_Distance(sensorNum);
-    }
-    dist = dist / window;
-    return dist;
-  }*/
 
 float filter(int sensorNum, int window)
 {

@@ -1,12 +1,15 @@
-void motorToggle()
+void motorToggle(int turnOn)
 {
-  digitalWrite(digitalPin43,HIGH);
-  delay(100);
-  digitalWrite(digitalPin44,LOW);
-  digitalWrite(digitalPin45,HIGH);
-  delay(100);
-  digitalWrite(digitalPin44,LOW);
-  digitalWrite(digitalPin45,LOW);
+  if (turnOn)
+  {
+    digitalWrite(digitalPin44, HIGH);
+    digitalWrite(digitalPin43, HIGH);
+    digitalWrite(digitalPin45, LOW); 
+  } else if (turnOn == 0)
+  {
+    digitalWrite(digitalPin43, LOW);
+
+  }
 }
 
 void right(int repeat , int denom)
@@ -94,8 +97,8 @@ void reverse(int repeat, int denom)
   for (int i = 0; i < repeat; i = i + 1)
   {
     //fix wiring
-    M3->run(FORWARD);
-    M4->run(BACKWARD);
+    M3->run(BACKWARD);
+    M4->run(FORWARD);
 
     M3->setSpeed(test2);
     M4->setSpeed(test2);
@@ -113,8 +116,8 @@ void reverse(int repeat, int denom)
 
 void drive_reverse(int repeat)
 {
-  M3->run(FORWARD);
-  M4->run(BACKWARD);
+  M3->run(BACKWARD);
+  M4->run(FORWARD);
 
   M4->setSpeed(test2);
   M3->setSpeed(test2);
@@ -134,8 +137,8 @@ void forward(int repeat, int denom)
   for (int i = 0; i < repeat; i = i + 1)
   {
     //fix wiring
-    M3->run(BACKWARD);
-    M4->run(FORWARD);
+    M3->run(FORWARD);
+    M4->run(BACKWARD);
 
     M4->setSpeed(test2);
     M3->setSpeed(test2);
@@ -153,8 +156,8 @@ void forward(int repeat, int denom)
 
 void drive_forward(int repeat)
 {
-  M3->run(BACKWARD);
-  M4->run(FORWARD);
+  M3->run(FORWARD);
+  M4->run(BACKWARD);
 
   M4->setSpeed(test2);
   M3->setSpeed(test2);
@@ -170,64 +173,71 @@ void drive_forward(int repeat)
 }
 
 void Drive_Straight(double cm)
+{
+  int mSpeedLeft = 100;
+  int mSpeedRight = 100;
+
+  setPoint = 1;
+
+  M3->run(FORWARD);
+  M4->run(BACKWARD);
+
+  M4->setSpeed(mSpeedRight);                                   //Right
+  M3->setSpeed(mSpeedLeft);                                    //Left
+  delay(250);
+  bool motor = true;
+
+  rightEnc.write(0);
+  leftEnc.write(0);
+
+  while (abs(Pos_left) < cm || abs(Pos_right) < cm) //was &&, now ||
   {
-    int mSpeedLeft = 100;
-    int mSpeedRight = 100;
+    //rightEnc.write(0);
+    //leftEnc.write(0);
+    encoders();
 
-    setPoint = 1;
-    
-    M3->run(BACKWARD);
-    M4->run(FORWARD);
-
-    M4->setSpeed(mSpeedRight);                                   //Right
-    M3->setSpeed(mSpeedLeft);                                    //Left
-    delay(250);
-    bool motor = true;
-    
-    while(Pos_left < cm && Pos_right < cm)
+    if (motor == true)
     {
-      encoders();
-      if (motor == true)
-      {
-        input = Pos_left / Pos_right;
+      input = Pos_left / Pos_right;
 
-        //Summing junc for PID
-        comp();
-        
-        mSpeedRight = mSpeedLeft + (mSpeedLeft * output); //!!!!!!!!!!!!!!!!!!! WAS WORKING
-        M3->setSpeed(mSpeedRight);
-      }
-      else if (motor == false)
-      {
-        input = Pos_right / Pos_left;
-        //Summing junc for PID
-        comp();
-        mSpeedLeft = mSpeedRight + (mSpeedRight * output);
-        M4->setSpeed(mSpeedLeft);
-      }
-      motor = !motor;
+      //Summing junc for PID
+      comp();
+
+      mSpeedRight = mSpeedLeft + (mSpeedLeft * output); //!!!!!!!!!!!!!!!!!!! WAS WORKING
+      M3->setSpeed(mSpeedRight);
     }
-    M4->setSpeed(0);
-    M3->setSpeed(0);
-    delay(test3);
-    M3->run(RELEASE);
-    M4->run(RELEASE);
-    exit(0);
+    else if (motor == false)
+    {
+      input = Pos_right / Pos_left;
+      //Summing junc for PID
+      comp();
+      mSpeedLeft = mSpeedRight + (mSpeedRight * output);
+      M4->setSpeed(mSpeedLeft);
+    }
+    motor = !motor;
   }
+
+  M4->setSpeed(0);
+  M3->setSpeed(0);
+
+  delay(test3);
+  M3->run(RELEASE);
+  M4->run(RELEASE);
+}
 
 void Drive_Circle(double radius)
 {
-  radius = radius + (2.3 *.5);
+  radius = radius + (2.3 * .5);
   double w = 7.5 * 2.54;
-  double inner_distance = 2 *pi * radius ;
+  double inner_distance = 2 * pi * radius ;
   double outer_distance = 2 * pi * (radius + w);
   int inner_speed = 100;
   int outer_speed = 0;
   double ratio = (radius + w) / radius;
   outer_speed = ratio * inner_speed;
 
-  M3->run(BACKWARD);
-  M4->run(FORWARD);
+  M3->run(FORWARD);
+  M4->run(BACKWARD);
 
   M4->setSpeed(inner_speed);
   M3->setSpeed(outer_speed);
@@ -238,7 +248,7 @@ void Drive_Circle(double radius)
   M3->setSpeed(0);
 
   delay(test3);
-  
+
   M3->run(RELEASE);
   M4->run(RELEASE);
 }
