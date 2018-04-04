@@ -160,7 +160,6 @@ void alignWall()
     stack_ptr = 0;
   }
 }
-int flag = 0;
 void inBetweenWalls()
 {
   float thresh = 2.5; //We can make this small if needed...
@@ -168,56 +167,57 @@ void inBetweenWalls()
   {
     for (int i = 1; i < 350; i++)
     {
-      //myStepper->setSpeed(i);
-      //myStepper->step(5, FORWARD, DOUBLE);
       myStepper->onestep(FORWARD, DOUBLE);
-      //myStepper->setSpeed(100);
-      //myStepper->step(25, FORWARD, DOUBLE);
-      //myStepper->setSpeed(215);
-      //myStepper->step(25, FORWARD, DOUBLE);
-      //myStepper->release();
-      //delay(250);
       flag = 1;
     }
     myStepper->release();
   }
- 
+
   cm_right = filter(analogPin2, 50);
   cm_left = filter(analogPin1, 50);
-  Serial.print("Right:");
-  Serial.println(cm_right);
-  Serial.print("Left:");
-  Serial.println(cm_left);
-  Serial.println("------------");
+  /*Serial.print("Right:");
+    Serial.println(cm_right);
+    Serial.print("Left:");
+    Serial.println(cm_left);
+    Serial.println("------------");
+  */
 
   if ((cm_right > cm_left) && abs(cm_right - cm_left) >= thresh)
   {
-    //drive_right(3);
-    //drive_reverse(3);
-    //drive_left(3);
-    right(3,1);
-    reverse(3,1);
-    left(4,1);
+    right(3, 1);
+    reverse(3, 1);
+    left(4, 1);
   }
   else if ((cm_left > cm_right) && abs(cm_left - cm_right) >= thresh)
   {
-    //drive_left(3);
-    //drive_reverse(3);
-    //drive_right(3);
-    left(3,1);
-    reverse(3,1);
-    right(4,1);
+    left(3, 1);
+    reverse(3, 1);
+    right(4, 1);
+  }
+  else if (cm_right > 15 && cm_left > 15)
+  {
+    if (flag1 == 0)
+    {
+      for (int i = 1; i < 350; i++)
+      {
+        myStepper->onestep(BACKWARD, DOUBLE);
+      }
+      myStepper->release();
+      flag1 = 1;
+    }
+    Drive_Straight(25);
+    //if we detect the wall in front set this state!
+    //if ()
+    //{
+    CS = 2;
+    flag = 0;
+    flag1 = 0;
+    //}
   }
   else
   {
     Serial.println("Driving Forward");
-    //delay(1500);
-    //drive_forward(40);
-    Drive_Straight(10);
-  }
-  if (cm_right > 100 && cm_left > 100)
-  {
-    //Do something with the front servo to detect front wall or lines.......
+    Drive_Straight(25);
   }
 }
 
@@ -298,6 +298,27 @@ float IR_Distance(int sensorNum)
   float voltages = analogRead(sensorNum) * .004828125;
   dist = (5 * pow(voltages, -1));
   delay(1);
+  return dist;
+}
+
+float IR_Distance_Long(int sensorNum)
+{
+  float dist = 0;
+  float voltages = analogRead(sensorNum) * .004828125;
+  dist = (13 * pow(voltages, -1));
+  delay(1);
+  return dist;
+}
+
+float flilter_long(int window,int sensorNum)
+{
+  float dist = 0;
+
+  for (int i = 0; i < window; i++)
+  {
+    dist = dist + IR_Distance_Long(sensorNum);
+  }
+  dist = dist / window;
   return dist;
 }
 
@@ -415,7 +436,7 @@ void comp()
     errSum += error;
     double dErr = (error - lastErr);
 
-    output = kP * error + kI * errSum + kD * dErr;
+    output = kP * error  + kD * dErr + kI * errSum;
 
     lastErr = error;
     last_time = current;

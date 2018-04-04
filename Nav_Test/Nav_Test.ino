@@ -42,11 +42,15 @@ int angle = 45;
 int done = 0;
 boolean D_rection = true;
 int count, inc, pause = 1;
-int global_count = 0;
+int global_count, flag, flag1 = 0;
 int index, lastIndex, wall, edge, obstacle, line = 0;
 float distance = 0;
 long duration;
 float cm, cm_right, cm_left;
+
+//Statemachne things...
+int CS = 0;
+boolean goCMD = false;
 
 //TESTING
 int test1 = 50;
@@ -62,7 +66,6 @@ float slope = 0;
 //Wheel O shit
 Encoder leftEnc(18, 19);           //Motor2
 Encoder rightEnc(2, 3);            //Motor1
-
 double encoder_scale = 4480;
 double wheel_circumference = 2 * pi * 2.54;
 double left_counts , right_counts, left_last_count, right_last_count;
@@ -143,6 +146,14 @@ void setup()
 
 void loop()
 {
+  /*cm_right = filter(analogPin2, 50);
+    cm_left = filter(analogPin1, 50);
+    Serial.print("Right:");
+    Serial.println(cm_right);
+    Serial.print("Left:");
+    Serial.println(cm_left);
+    Serial.println("------------");
+  */
   //cm = IR_Distance(analogPin0);
   //Serial.println(cm);
   //testLineFollower();
@@ -150,41 +161,10 @@ void loop()
   //if (done == 0)  alignWall();
   //Quick Tsst for testing
   //FollowWall();
-  
-  /*for (int i = 1; i < 850; i++)
-  {
-    //myStepper->setSpeed(i);
-    //myStepper->step(5, FORWARD, DOUBLE);
-    myStepper->onestep(FORWARD, DOUBLE);
-    //myStepper->setSpeed(100);
-    //myStepper->step(25, FORWARD, DOUBLE);
-    //myStepper->setSpeed(215);
-    //myStepper->step(25, FORWARD, DOUBLE);
-    //myStepper->release();
-    //delay(250);
-  }
-
-  for (int i = 1; i < 1050; i++)
-  {
-    //myStepper->setSpeed(i);
-    //myStepper->step(5, FORWARD, DOUBLE);
-    myStepper->onestep(BACKWARD, DOUBLE);
-    //myStepper->setSpeed(100);
-    //myStepper->step(25, FORWARD, DOUBLE);
-    //myStepper->setSpeed(215);
-    //myStepper->step(25, FORWARD, DOUBLE);
-    //myStepper->release();
-    //delay(250);
-  }
-  myStepper->release();
-  exit(0);*/
-    digitalWrite(digitalPin44, HIGH);
-    digitalWrite(digitalPin43, HIGH);
-    digitalWrite(digitalPin45, LOW);  
-  // myStepper->step(100,FORWARD,DOUBLE);
-  // delay(120);
-  // myStepper->release();
-  //inBetweenWalls();
+  //myStepper->step(100,FORWARD,DOUBLE);
+  //delay(120);
+  //myStepper->release();
+  inBetweenWalls();
   //motorToggle(1);
   //Drive_Straight(1);
   //Drive_Straight(20);
@@ -204,6 +184,28 @@ void loop()
   //Drive_Straight(100);
   //drive_reverse(30);            //roughly 8inchs
   //delay(2000);
+  /*
+     StateMachine TIME!!!
+  */
+  if (goCMD)
+  {
+    switch (CS)
+    {
+      case 1://Paddleboard state
+        inBetweenWalls();
+        break;
+      case 2://Wall-lift state
+      case 3://U-turn state
+      case 4://Bars bb almost there
+      case 5://pull ups yo...
+      case 9://Reset state...
+      default:
+        //Ideal state???
+        break;
+
+    }
+  }
+
 
   /*if(debugMyRobot.available())
     {
