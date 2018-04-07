@@ -13,11 +13,47 @@
 #include "utility/Adafruit_MS_PWMServoDriver.h"
 #include "Encoder.h"
 
-SoftwareSerial debugMyRobot(10, 11);        //debugMyRobot(2,3); // RX, TX
+
+//PID Stuff
+double f = 0.5;                    //frequency in Hz
+
+//Encoder and motor globals
+double GearRatio = 70;        //the gear ratio
+int countsPerRev_motor = 64;  //the counts per revolution of the motor shaft
+long counts = 0;               //Globally initialize encoder counts
+
+
+//time variables
+unsigned long t_ms = 0;
+double t = 0;                 //current time
+double t_old_left, t_old_right = 0;             //previous time
+double dt = 0;
+
+double Pos = 0;               //current pos
+double Vel_left, Vel_right = 0;              //current velocity
+double Pos_old_left, Pos_old_right = 0;          //previous pos
+
+//CONTROL VARIABLES
+double error_old_left, error_old_right = 0.0;
+double Pos_des = 0;
+double error_left, error_right, error = 0.0;
+double dErrordt = 0;
+double integError_left, integError_right = 0;
+int M = 0;
+float V = 0;//100000, 1, .55
+double kp_left = 85;
+double kd_left = .85;
+double ki_left = 20;
+double kp_right = 50;
+double kd_right = .50;
+double ki_right = 0;
+double input;
+
+SoftwareSerial myserial(10, 11); //(10, 11);        //debugMyRobot(2,3); // RX, TX
 const int analogPin0 = 0;                   //Center sensor
 const int analogPin1 = 1;                   //Left sensor
 const int analogPin2 = 2;                   //Right sesnor
-const int analogPin3 = 3;                   //Center2 sensor
+const int analogPin8 = 8;                   //Center2 sensor
 const int analogPin7 = 7;                   //mag sensor
 
 const int digitalPin22 = 22;                // LED out
@@ -39,7 +75,7 @@ int f_wall = 0;                            //flag for follow_wall
 char val;                                  // Data received from the serial port
 int radius = 16;
 int angle = 45;
-int done = 0;
+int done, right_speed, left_speed = 0;
 boolean D_rection = true;
 int count, inc, pause = 1;
 int global_count, flag, flag1 = 0;
@@ -49,8 +85,8 @@ long duration;
 float cm, cm_right, cm_left;
 
 //Statemachne things...
-int CS = 0;
-boolean goCMD = false;
+int CS = 1;
+boolean goCMD = true;
 
 //TESTING
 int test1 = 50;
@@ -70,24 +106,16 @@ double encoder_scale = 4480;
 double wheel_circumference = 2 * pi * 2.54;
 double left_counts , right_counts, left_last_count, right_last_count;
 
-//PID Controls
-//Set these wherever convenient
-//Set using function setTunings()
-double input, output, setPoint, kP, kI, kD , errSum, lastErr;
-int sampleTime = 1;
-
-//Set by algorithm
-unsigned long last_time;
-
 //Wheel o-shit variables
-unsigned long t_ms = 0;
-double t, t_old, Pos_left, Pos_right, Vel_left, Vel_right, Pos_left_old, Pos_right_old, rads; // check if shit breaks
+//unsigned long t_ms = 0;
+double Pos_right, Pos_left; //Vel_left, Vel_right;
+//double t, t_old, Pos_left, Pos_right, Vel_left, Vel_right, Pos_left_old, Pos_right_old, rads; // check if shit breaks
 
-//Sonar servo
-Servo sonar;                                //Center servo pin Digital 24
-Servo sonar1;                               //Right servo pin Digital 23
-Servo sonar2;                               //Left servo pin Digital 22
-Servo sonar3;                               //Center 2nd servo pin Digital 21
+//Right_Tilt servo
+Servo Right_Tilt;                                //Center servo pin Digital 24
+Servo Left_Tilt;                               //Right servo pin Digital 23
+Servo Front_Tilt;                               //Left servo pin Digital 22
+Servo Front_Pan;                               //Center 2nd servo pin Digital 21
 
 // Create the motor shield object with the default I2C address
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
@@ -104,24 +132,24 @@ void setup()
   Serial.println("Serial Started");
 
   // Open serial communications with the other Arduino board
-  debugMyRobot.begin(9600);
+  myserial.begin(9600);
 
   //attach correct servos to the correct pins
-  sonar.attach(24);
-  sonar1.attach(23);
-  sonar2.attach(22);
-  sonar3.attach(42);
+  Right_Tilt.attach(24);
+  Left_Tilt.attach(23);
+  Front_Tilt.attach(22);
+  Front_Pan.attach(42);
 
   Serial.println("Servos Attached");
 
   //set servos starting positions
-  sonar.write(55);
+  Right_Tilt.write(55);
   delay(250);
-  sonar1.write(100);
+  Left_Tilt.write(55);
   delay(250);
-  sonar2.write(55);
+  Front_Tilt.write(25);
   delay(250);
-  sonar3.write(90);
+  Front_Pan.write(90);
   delay(250);
 
   myStepper->setSpeed(1);
@@ -137,13 +165,12 @@ void setup()
   //Settle time
   delay(500);
 
-  SetSampleTime(1); //Might be the fix as to why were were getting a NAN!
-  delay(50);
-  setTunings(100000, 1, .55); //Best tune so far (100000,1,.55)
+  //setTunings(25,5, .75); //Best tune so far (100000,1,.55)
+  //SetSampleTime(100); //Might be the fix as to why were were getting a NAN!
   Serial.println("PID Tuned");
   Serial.println("Entering Loop");
 }
-
+int once = 1;
 void loop()
 {
   /*cm_right = filter(analogPin2, 50);
@@ -154,6 +181,8 @@ void loop()
     Serial.println(cm_left);
     Serial.println("------------");
   */
+  //encoders();
+  //Drive_Straight(100);
   //cm = IR_Distance(analogPin0);
   //Serial.println(cm);
   //testLineFollower();
@@ -163,11 +192,13 @@ void loop()
   //FollowWall();
   //myStepper->step(100,FORWARD,DOUBLE);
   //delay(120);
+  //drive_forward(100);
   //myStepper->release();
-  inBetweenWalls();
+  //inBetweenWalls();
   //motorToggle(1);
   //Drive_Straight(1);
-  //Drive_Straight(20);
+  //Drive_Straight(100);
+  //Test_IR_Sensors();
   //motorToggle(0);
   //testServoAdjust();
   //Serial.print("Reading from right side ");
@@ -176,7 +207,15 @@ void loop()
   //Serial.println(cm_left);
   //Serial.print("Reading from center ");
   //Serial.println(cm);
-  //testLineFollower();
+  
+  /*if (once == 1)
+  {
+    acquire_line();
+    once = 0;
+  }
+  testLineFollower();
+  */
+  
   //motorToggle();
   //detectMag();
   //Odometry Tests
@@ -192,10 +231,19 @@ void loop()
     switch (CS)
     {
       case 1://Paddleboard state
-        inBetweenWalls();
+        set_Ratio(4);
+        inBetweenObjects();
         break;
       case 2://Wall-lift state
+        set_Ratio(4);
+        acquire_line();
+        WallLift();
       case 3://U-turn state
+        acquire_line();
+        while(1)
+        {
+          testLineFollower();
+        }
       case 4://Bars bb almost there
       case 5://pull ups yo...
       case 9://Reset state...

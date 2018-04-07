@@ -1,28 +1,74 @@
+void comp_left()
+{
+  t_ms = micros();
+  t = t_ms / 1000000.0;                         //current time
+  dt = t - t_old_left;
+
+  Vel_left = Pos_left / t;
+
+  error = .00000001 - Vel_left;
+
+  dErrordt = (error - error_old_left) / dt;
+  integError_left = integError_left + error * dt;
+
+  V = kp_left * error + kd_left * dErrordt + ki_left * integError_left;
+
+  if (!isnan(V))
+  {
+    V = (V * 2.5);
+    V = constrain(V, 0, 200);
+    M4->setSpeed(V);
+  }
+
+  t_old_left = t;
+  Pos_old_left = Pos_left;
+  error_old_left = error_left;
+}
+
+void comp_right()
+{
+  t_ms = micros();
+  t = t_ms / 1000000.0;                         //current time
+  dt = t - t_old_right;
+
+  Vel_right = Pos_right / t;
+
+  error = .00000001 - Vel_right;
+
+  dErrordt = (error - error_old_right) / dt;
+  integError_right = integError_right + error * dt;
+
+  V = kp_right * error + kd_right * dErrordt + ki_right * integError_right;
+
+  if (!isnan(V))
+  {
+    V = (V * 2.5);
+    V = constrain(V, 0, 200);
+    M3->setSpeed(V);
+  }
+
+  t_old_right = t;
+  Pos_old_right = Pos_right;
+  error_old_right = error_right;
+}
 void sense_wall(int mode)
 {
   cm = filter(analogPin0, 50);
   if (cm < 5)
   {
     wall = 1;
-    //Serial.print("wall@");
-    //Serial.println(cm);
   }
   else
     wall = 0;
 
   if (mode == 0 || wall == 0)
   {
-    sonar.write(100);
-    //sonar1.write(45);
-    //sonar2.write(100);
+    Right_Tilt.write(100);
   }
   else if (mode == 1 || wall == 1)
   {
-    sonar.write(50);
-    //sonar1.write(100);
-    //sonar2.write(45);
+    Right_Tilt.write(50);
   }
-  //delay(test4);
 }
 
 void FollowWall()
@@ -160,7 +206,36 @@ void alignWall()
     stack_ptr = 0;
   }
 }
-void inBetweenWalls()
+
+void Test_IR_Sensors()
+{
+  float left = filter(analogPin1, 50);
+  float right = filter(analogPin2, 50);
+  float center_short = filter(analogPin0, 50);
+  float center_long = filter_long(analogPin8, 50);
+  //Serial.print("Left Sens: ");
+  //Serial.println(left);
+  //Serial.print("Right Sens: ");
+  //Serial.println(right);
+  Serial.print("Center_Short: ");
+  Serial.println(center_short);
+  //Serial.print("Center_Long: ");
+  //Serial.println(center_long);
+  //myserial.write(center_long);
+}
+
+void WallLift()
+{
+  float dist_to_wall = 0;
+  //Front_Tilt.write(95);
+  drive_forward(60);
+  motorToggle(1);
+  drive_forward(50);
+  motorToggle(0);
+  CS = 3;
+}
+
+void inBetweenObjects()
 {
   float thresh = 2.5; //We can make this small if needed...
   if (flag == 0)
@@ -184,15 +259,15 @@ void inBetweenWalls()
 
   if ((cm_right > cm_left) && abs(cm_right - cm_left) >= thresh)
   {
-    right(3, 1);
-    reverse(3, 1);
-    left(4, 1);
-  }
-  else if ((cm_left > cm_right) && abs(cm_left - cm_right) >= thresh)
-  {
     left(3, 1);
     reverse(3, 1);
     right(4, 1);
+  }
+  else if ((cm_left > cm_right) && abs(cm_left - cm_right) >= thresh)
+  {
+    right(3, 1);
+    reverse(3, 1);
+    left(4, 1);
   }
   else if (cm_right > 15 && cm_left > 15)
   {
@@ -205,19 +280,19 @@ void inBetweenWalls()
       myStepper->release();
       flag1 = 1;
     }
-    Drive_Straight(25);
+
+    set_Ratio(3);
+    drive_forward(10);
     //if we detect the wall in front set this state!
     //if ()
     //{
     CS = 2;
-    flag = 0;
-    flag1 = 0;
     //}
   }
   else
   {
     Serial.println("Driving Forward");
-    Drive_Straight(25);
+    drive_forward(20);
   }
 }
 
@@ -262,8 +337,8 @@ void sense_edge(int mode)
   else
     edge = 0;
 
-  if (mode == 0 || edge == 0) sonar.write(50);
-  else if (mode == 1 || edge == 1) sonar.write(100);
+  if (mode == 0 || edge == 0) Right_Tilt.write(50);
+  else if (mode == 1 || edge == 1) Right_Tilt.write(100);
   //delay(test4);
 }
 
@@ -310,7 +385,7 @@ float IR_Distance_Long(int sensorNum)
   return dist;
 }
 
-float flilter_long(int window,int sensorNum)
+float filter_long(int sensorNum, int window)
 {
   float dist = 0;
 
@@ -350,13 +425,13 @@ void detectMag()
 
 void testServoAdjust()
 {
-  sonar.write(50);
-  sonar1.write(100);
-  sonar2.write(45);
+  Right_Tilt.write(50);
+  Left_Tilt.write(100);
+  Front_Tilt.write(45);
   //delay(500);
-  //sonar.write(100);
-  //sonar1.write(45);
-  //sonar2.write(100);
+  //Right_Tilt.write(100);
+  //Left_Tilt.write(45);
+  //Front_Tilt.write(100);
   delay(500);
 
 }
@@ -365,7 +440,7 @@ void testLineFollower()
 {
   //int window[5] = NULL;
 
-  sonar.write(100);
+  Right_Tilt.write(100);
   find_line();
   forward(1, 1);
   /*
@@ -377,6 +452,18 @@ void testLineFollower()
     forward(1);
     else
   */
+}
+
+void acquire_line()
+{
+  int line_index = 0;
+  left(15, 2);
+  while (line == 0 && line_index < 30)
+  {
+    right(1, 2);
+    sense_line();
+    line_index++;
+  }
 }
 
 //OPTO: tips make the robot move more smoothly left and right KON3!
@@ -399,12 +486,10 @@ void find_line()
         sense_line();
         if (line == 1) break;
       }
-
     sense_line();
     count = count + 1;
   }
-
-  sense_line();
+  //sense_line();
   count = 0;
 }
 
@@ -412,7 +497,7 @@ void sense_line()
 {
   cm = filter(analogPin0, 50);
 
-  if ((cm > 6) && (cm < 10)) //WAS 4
+  if ((cm > 6) && (cm < 15)) //WAS 4
   {
     line = 1;
     //Serial.print("line@");
@@ -424,11 +509,10 @@ void sense_line()
     //Serial.println(cm);
   }
 }
-
-void comp()
-{
-  unsigned long current = micros();
-  int timeDelta = (current - last_time);
+/*void comp()
+  {
+  unsigned long current = millis();
+  double timeDelta = (double)(current - last_time);
 
   if (timeDelta >= sampleTime)
   {
@@ -441,23 +525,11 @@ void comp()
     lastErr = error;
     last_time = current;
   }
-}
-
-void setTunings(double kp, double ki, double kd)
-{
-  double SampleTimeInSecs = ((double)sampleTime) / 1000;
-  kP = kp;
-  kI = ki * SampleTimeInSecs;
-  kD = kd / SampleTimeInSecs;
-}
-
-void SetSampleTime(int newSampleTime)
-{
-  if (newSampleTime > 0)
-  {
-    double ratio = (double) newSampleTime / (double) sampleTime;
-    kI *= ratio;
-    kD /= ratio;
-    sampleTime = (unsigned long) newSampleTime;
   }
-}
+  void setTunings(double kp, double ki, double kd)
+  {
+  kP = kp;
+  kI = ki;
+  kD = kd;
+  }
+*/
